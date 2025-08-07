@@ -1,0 +1,7 @@
+fastapi
+pinecone
+dotenv
+easyocr
+numpy
+openai
+pdf2image

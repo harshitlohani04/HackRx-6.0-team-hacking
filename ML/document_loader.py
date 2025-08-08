@@ -4,10 +4,10 @@ import tempfile
 import numpy as np
 from pdf2image import convert_from_bytes
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from prompt_construct import parsing_res_to_prompt  # adjust if needed
 import easyocr
-import pinecone
+from vector_db import generate_response
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -21,6 +21,7 @@ async def text_extraction_pipeline(request: Request):
     # Parse incoming JSON
     data = await request.json()
     url = data.get("url")
+    questions = data.get("questions")
     if not url:
         return HTMLResponse("Error: 'url' field is required", status_code=400)
 
@@ -58,7 +59,10 @@ async def text_extraction_pipeline(request: Request):
                 all_page_data.append(f"-- Page {page_num} --\n{prompt}")
 
         # Join all pages into one HTML response
-        return HTMLResponse("<br><br>".join(all_page_data), status_code=200)
+        pdfData = "<br><br>".join(all_page_data)
+        llm_response = generate_response(pdfData, questions)
+        llm_response_dict = {"answers": llm_response}
+        return JSONResponse(content=llm_response_dict, status_code=200)
 
     except Exception as e:
         return HTMLResponse(f"Error: {str(e)}", status_code=500)

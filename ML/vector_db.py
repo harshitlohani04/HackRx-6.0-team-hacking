@@ -1,25 +1,73 @@
-from pinecone import Pinecone
+# Importing dependencies
 import os
-import openai
 from dotenv import load_dotenv
-from chunker import chunk_pdf_text
+from chunker import main_chunk_function
+from langchain.schema import Document
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.chains import RetrievalQA
+from langchain_pinecone import PineconeVectorStore
+from pinecone import Pinecone, ServerlessSpec
+from uuid import uuid4
+from langchain_openai import ChatOpenAI
 
+# loading environment variable
 load_dotenv()
+# Initializing pinecone instance
+def create_pineconeInstance():
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
-try:
-    pineconeClient = Pinecone(api_key = os.getenv("PINECONE-KEY"))
-    print('Pinecone client creation successfull')
-    index_name = "pdfData-hackrx"
-    if not pineconeClient.has_index(index_name):
-        pineconeClient.create_index_for_model(
+    index_name = "hackrx6"
+
+    # Create index if it doesn't exist
+    if index_name not in pc.list_indexes().names():
+        pc.create_index(
             name=index_name,
-            cloud="aws",
-            region="ap-south-1",
-            embed={
-                "model":"llama-text-embed-v2",
-                "field_map":{"text": "chunk_text"}
-            }
+            dimension=384,  # For all-MiniLM-L6-v2
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
-except Exception as e:
-    print(f"Pinecone client creation failed with error : {e}")
+
+    # Connect to index
+    index = pc.Index(index_name)
+    return index
+
+# Creating the vector store and llm inferencing
+def generate_response(extracted_text: str, questions: list[str]):
+    chunks = main_chunk_function(extracted_text)
+    documents = [Document(page_content=text) for text in chunks]
+
+    embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    index = create_pineconeInstance()
+    vector_store = PineconeVectorStore(index=index, embedding=embedding_model)
+
+    uuids = [str(uuid4()) for _ in range(len(documents))]
+    vector_store.add_documents(documents=documents, ids=uuids)
+
+    # Running inference
+    # llm = HuggingFaceEndpoint( 
+    #     repo_id="moonshotai/Kimi-K2-Instruct",
+    #     provider="together",
+    #     temperature=0.05,
+    #     model_kwargs={'max_length': 128},
+    #     huggingfacehub_api_token=os.getenv("HUGGINGFACE_TOKEN")
+    # )
+    llm = ChatOpenAI(
+        api_key=os.getenv("GROQ_API_KEY"),
+        base_url="https://api.groq.com/openai/v1",
+        model="llama-3.1-8b-instant",
+        temperature=0.05,
+        max_tokens=128
+    )
+    # model = ChatHuggingFace(llm=llm)
+    qa = RetrievalQA.from_chain_type(  
+        llm=llm,  
+        chain_type="stuff",  
+        retriever=vector_store.as_retriever()  
+    )
+    response = []
+    for question in questions:
+        sample = qa.invoke(question)
+        print(sample)
+        response.append(qa.invoke(question)["result"])
+    return response
 

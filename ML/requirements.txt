@@ -5,3 +5,6 @@ easyocr
 numpy
 openai
 pdf2image
+langchain
+langchain-openai
+langchain-pinecone

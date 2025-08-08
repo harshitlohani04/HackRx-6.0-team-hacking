@@ -1,188 +1,242 @@
 import re
 
-def chunk_pdf_text(text):
-    # Replace multiple consecutive newlines with two for robustness
-    text = re.sub(r'\n+', '\n\n', text)
-    # Split by double newlines to get candidate paragraphs
-    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
-
-    # Patterns for numbered and lettered points
-    point_regex = re.compile(r'^([ivx]{1,4}\.|[a-z]\.|\d+\.)\s+', re.IGNORECASE)
+def main_chunk_function(text, chunk_type="balanced"):
+    """
+    Universal document chunker - works with any document format.
     
-    final_chunks = []
-    for para in paragraphs:
-        # Split into lines to check for points at the start
-        lines = [line.strip() for line in para.split('\n') if line.strip()]
-        buffer = []  # temporary accumulator for a chunk
-        for line in lines:
-            # If the line starts with a point, split the buffer if not empty
-            if point_regex.match(line):
-                if buffer:
-                    final_chunks.append(' '.join(buffer))
-                    buffer = []
-                final_chunks.append(line)
-            else:
-                buffer.append(line)
-        if buffer:
-            final_chunks.append(' '.join(buffer))
-    return final_chunks
+    Args:
+        text: Raw document text string (PDF, Word, etc.)
+        chunk_type: "balanced" (default), "semantic", or "sliding_window"
+    
+    Returns:
+        List of text chunks ready for vector embedding
+    """
+    if chunk_type == "semantic":
+        return semantic_chunk_text(text)
+    elif chunk_type == "sliding_window":
+        return sliding_window_chunk(text)
+    else:
+        return balanced_chunk_text(text)
 
-# Example usage:
-extracted_text = """-- Page 1 --
-Edelweiss
-GENERAL
-INSURANCE
-Well Baby Well Mother- Add On
-Wordings
-ir Ambulance Cover
-In consideration of the payment of additional premium to Us, We will cover the expenses incurred on air
-ambulance services in respect of an Insured Person which are offered by
-healthcare or an air
-ambulance service provider and which have been used during the Policy Period to transfer the Insured
-Person to
-Hospital or transfer from one hospital to another with adequate emergency facilities for the
-provision of Emergency Care, provided that:
-1_
-Our maximum liability under this Benefit for any and all claims arising during the
-Year will be restricted to the Sum insured as stated in the Policy Schedule;
-ii_
-The maximum distance of travel undertaken is 150 kms. In case of distance travelled is
-more than 150 kms, proportionate amount of expenses upto 150 kms shall be payable
-Example: If insured has travelled a distance of 300kms
-an air ambulance we will pay
-50% of the total cost or Sum Insured whichever is lower: (EligibilitylActual distance travelled
-150kms/300kms
-0.5)
-iii.
-It is for a life
-threatening emergency health condition/s of the Insured Person which requires
-immediate and rapid ambulance transportation from the place where the Insured Person is
-situated at the time of requiring Emergency Care to a hospital provided that the
-transportation is for Medically Necessary Treatment, is certified in writing by a Medical
-Practitioner; and road ambulance services cannot be provided.
-iv.
-Such air ambulance providing the services, should be duly licensed to operate as such by a
-competent government Authority.
-This cover is limited to transportation from the area of emergency to a Hospital providing
-emergency care which is not available at the place of origin and from one medical centre to
-another.
-We will not cover:
-a.
-Transfer of the Insured Person from one medical facility to another medical
-facility of
-similar capabilities which provides a similar level of care.
-b_
-transportation of the Insured Person from Hospital to the Insured Person' $
-residence after helshe has been discharged from the Hospital
-C.
-transportation O air ambulance expenses incurred outside the geographical scope
-of India.
-d.
-Attempt at suicide
-Injuries resulting from participation in acts of war or insurrection
-f.
-commission of unlawful acts
-g.
-Incidents involving use of drugs unless prescribed by a medical practitioner
-h
-We have
-accepted
-a claim under Section II.A.1 in respect of the Insured Person for the
-same Accident/Illness for which air ambulance services were availed.
-We shall not be liable if Medically Necessary Treatment can be provided at the Hospital
-where the Insured Person is situated at the time of requiring Emergency Care.
-Claims towards Air Ambulance expenses will be payable by mode of Reimbursement only
-Add On Wordings- Well Baby Well Mother
-Base Product UIN: EDLHLGP2I462V032021
-Add On UIN: EDLHLGA23009V012223
-Edelweiss General Insurance Company Limited,
-Corporate Office: Sth Floor; Tower 3, Kohinoor
-Mall, Kohinoor City, Kirol Road, Kurla (West), Mumbai
-400 070, Registered Office:
-Edelweiss House, Off CST Road, Kalina, Mumbai -400 098, IRDAI
-No.=
-159, CIN: U66000MH2O16PLC273758, Reach uS on: 1800
-12000, Email: support@edelweissinsurance.com_
-Website: WWW edelweissinsurance.com; Issuing/Corporate Office: +91 22 4272 2200_
-Grievance Redressal Officer: +91 22 4931 4422, Dedicated Toll-Free Number for Grievance:
-800 120 216216. Trade
-displayed above
-belongs to Edelweiss Financial Services Limited and is used by Edelweiss General Insurance Company Limited under
-license. Insurance is
-the subject matter of solicitation.
-Policy
-using
-Any
-Any
-City
-Regn:
-logo<br><br>-- Page 2 --
-Edelweiss
-GENERAL
-INSURANCE
-Well Baby_WelL Mother-Add On_Wordings
-Well mother Cover
-Covers routine medical care provided to an insured female (expectant mothers and mothers who have
-delivered new born baby), which includes routine preventive care services and immunizations (within the
-maternity hospitalization period), during the period as opted by insured and specified in the policy
-schedule
-Routine Medical Care would include expenses recommended by
-doctor and incurred
-on
-Pharmacy, Diagnostics, Doctor Consultations and Therapy.
-Routine Preventive Care Services will include expenses recommended by a doctor and incurred
-on
-Pharmacy and Diagnostic Tests.
-The insured shall have option to opt for this cover for any one of the below mentioned period:
-1) At the onset of pregnancy and up to pre-hospitalization period for maternity.
-ii)
-At the onset of pregnancy and maternity hospitalization (only routine preventive care services and
-immunizations) up to first discharge from hospital:
-iii)
-At the onset of pregnancy, maternity hospitalization (only routine preventive
-care  services and
-immunizations) and until 30 days following birth of new born baby:
-We will not cover
-1 .
-infertility treatments
-2
-charges payable under the maternity section (if opted as an optional cover) of the policy
-Healthy baby expenses
-well baby care expenses
-Cover for expenses incurred for a New born baby after the birth until first discharge from hospital.
-Covers routine medical care provided to a new born baby, which includes limited to appropriate customary
-examinations required to assess the integrity and basic functions of child's organs and skeletal structure
-carried out immediately following birth, routine preventive care services and immunizations (within the
-hospitalization period)
-The sum insured limit shall be as opted for and specified in the policy schedule.
-multiple born babies
-sum insured shall be subject to limit in place.
-Routine Preventive Care Services will include expenses recommended by a doctor and incurred
-on
-Pharmacy and Diagnostic Tests.
-Add On Wordings- Well Baby Well Mother
-Base Product UIN: EDLHLGP21462V032021
-Add On UIN: EDLHLGA23009V012223
-Edelweiss General Insurance Company Limited,
-Corporate Office: Sth Floor; Tower 3, Kohinoor
-Mall, Kohinoor City, Kirol Road, Kurla (West), Mumbai
-400 070, Registered Office:
-Edelweiss House, Off CST Road, Kalina, Mumbai -400 098, IRDAI
-No.=
-159, CIN: U66000MH2O16PLC273758, Reach uS on: 1800
-12000, Email: support@edelweissinsurance.com_
-Website: WWW edelweissinsurance.com; Issuing/Corporate Office: +91 22 4272 2200_
-Grievance Redressal Officer: +91 22 4931 4422, Dedicated Toll-Free Number for Grievance:
-800 120 216216. Trade
-displayed above
-belongs to Edelweiss Financial Services Limited and is used by Edelweiss General Insurance Company Limited under license. Insurance is
-the subject matter of solicitation.
-Any
-Any
-For
-City
-Regn:
-logo"""
-chunks = chunk_pdf_text(extracted_text)
-for idx, chunk in enumerate(chunks, 1):
-    print(f"Chunk {idx}: {chunk}\n---")
+def balanced_chunk_text(text, min_chunk_size=250, max_chunk_size=800, overlap_size=100):
+    """
+    General-purpose chunker that works with any document type.
+    Balances chunk size with semantic boundaries.
+    """
+    # Basic text cleaning
+    text = clean_text(text)
+    
+    # Split into sentences for better boundary detection
+    sentences = split_into_sentences(text)
+    
+    chunks = []
+    current_chunk = ""
+    
+    for sentence in sentences:
+        # Check if adding this sentence exceeds max size
+        potential_chunk = current_chunk + " " + sentence if current_chunk else sentence
+        
+        if len(potential_chunk.strip()) > max_chunk_size:
+            # If current chunk meets minimum size, save it
+            if len(current_chunk.strip()) >= min_chunk_size:
+                chunks.append(current_chunk.strip())
+                
+                # Start new chunk with overlap
+                overlap = get_sentence_overlap(current_chunk, overlap_size)
+                current_chunk = overlap + " " + sentence if overlap else sentence
+            else:
+                # Current chunk too small, just add the sentence
+                current_chunk = potential_chunk
+        else:
+            current_chunk = potential_chunk
+    
+    # Add final chunk if it meets minimum size
+    if current_chunk.strip() and len(current_chunk.strip()) >= min_chunk_size:
+        chunks.append(current_chunk.strip())
+    
+    # Merge any remaining small chunks
+    return merge_small_chunks(chunks, min_chunk_size)
+
+def semantic_chunk_text(text, target_size=500, size_tolerance=0.3):
+    """
+    Semantic chunking based on natural document structure.
+    Works with paragraphs, sections, and natural breaks.
+    """
+    text = clean_text(text)
+    
+    # Try to identify natural breaks in order of preference
+    chunks = []
+    
+    # First, try double line breaks (paragraphs)
+    if '\n\n' in text:
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        chunks = group_by_size(paragraphs, target_size, size_tolerance)
+    
+    # If no clear paragraphs, try single line breaks
+    elif '\n' in text:
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        chunks = group_by_size(lines, target_size, size_tolerance)
+    
+    # Fall back to sentence-based chunking
+    else:
+        sentences = split_into_sentences(text)
+        chunks = group_by_size(sentences, target_size, size_tolerance)
+    
+    return chunks
+
+def sliding_window_chunk(text, window_size=600, overlap_size=150):
+    """
+    Sliding window approach - creates overlapping chunks of fixed size.
+    Good for ensuring no information is lost at boundaries.
+    """
+    text = clean_text(text).replace('\n', ' ')
+    
+    if len(text) <= window_size:
+        return [text]
+    
+    chunks = []
+    start = 0
+    
+    while start < len(text):
+        end = start + window_size
+        chunk = text[start:end]
+        
+        # Try to end at a sentence boundary
+        if end < len(text):
+            last_period = chunk.rfind('.')
+            last_space = chunk.rfind(' ')
+            
+            if last_period > len(chunk) * 0.8:  # Period in last 20%
+                chunk = text[start:start + last_period + 1]
+            elif last_space > len(chunk) * 0.8:  # Space in last 20%
+                chunk = text[start:start + last_space]
+        
+        chunks.append(chunk.strip())
+        
+        if end >= len(text):
+            break
+            
+        start = end - overlap_size
+    
+    return [chunk for chunk in chunks if len(chunk.strip()) > 50]
+
+def clean_text(text):
+    """Clean and normalize text from any document type."""
+    if not text:
+        return ""
+    
+    # Remove excessive whitespace while preserving structure
+    text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)  # Max 2 consecutive newlines
+    text = re.sub(r'[ \t]+', ' ', text)  # Normalize spaces
+    text = re.sub(r'\r\n', '\n', text)  # Normalize line endings
+    
+    # Remove page numbers, headers, footers (common patterns)
+    text = re.sub(r'\n\s*\d+\s*\n', '\n', text)  # Standalone numbers
+    text = re.sub(r'\n\s*Page \d+.*?\n', '\n', text, flags=re.IGNORECASE)
+    
+    return text.strip()
+
+def split_into_sentences(text):
+    """Split text into sentences using multiple delimiters."""
+    # Handle common sentence endings
+    sentence_pattern = r'[.!?]+(?:\s+|$)'
+    sentences = re.split(sentence_pattern, text)
+    
+    # Clean and filter sentences
+    sentences = [s.strip() for s in sentences if s.strip()]
+    
+    # Rejoin sentences that might have been split incorrectly
+    cleaned_sentences = []
+    for i, sentence in enumerate(sentences):
+        if sentence:
+            # Add back the punctuation (except for last sentence)
+            if i < len(sentences) - 1 and not sentence.endswith(('.', '!', '?')):
+                # Try to determine original punctuation
+                original_end = text.find(sentence) + len(sentence)
+                if original_end < len(text) and text[original_end] in '.!?':
+                    sentence += text[original_end]
+            cleaned_sentences.append(sentence)
+    
+    return cleaned_sentences
+
+def group_by_size(text_units, target_size, tolerance=0.3):
+    """Group text units (paragraphs, sentences) into appropriately sized chunks."""
+    chunks = []
+    current_chunk = ""
+    
+    for unit in text_units:
+        potential_chunk = current_chunk + "\n\n" + unit if current_chunk else unit
+        
+        # If within acceptable size range, continue building chunk
+        if len(potential_chunk) <= target_size * (1 + tolerance):
+            current_chunk = potential_chunk
+        else:
+            # Current chunk is good size, start new one
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            current_chunk = unit
+    
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+    
+    return chunks
+
+def get_sentence_overlap(text, overlap_size):
+    """Get overlap text preferring complete sentences."""
+    if len(text) <= overlap_size:
+        return text
+    
+    # Find sentence boundaries in the overlap region
+    overlap_start = max(0, len(text) - overlap_size)
+    overlap_text = text[overlap_start:]
+    
+    # Look for sentence start (capital letter after punctuation and space)
+    sentence_start = re.search(r'[.!?]\s+[A-Z]', overlap_text)
+    
+    if sentence_start:
+        return overlap_text[sentence_start.start() + 2:]  # Skip punctuation and space
+    else:
+        return overlap_text
+
+def merge_small_chunks(chunks, min_size):
+    """Merge chunks that are too small with their neighbors."""
+    if not chunks:
+        return chunks
+        
+    merged = []
+    i = 0
+    
+    while i < len(chunks):
+        current = chunks[i]
+        
+        # If current chunk is too small, try to merge
+        if len(current) < min_size:
+            if i + 1 < len(chunks):  # Merge with next
+                merged.append(current + "\n\n" + chunks[i + 1])
+                i += 2
+            elif merged:  # Merge with previous
+                merged[-1] = merged[-1] + "\n\n" + current
+                i += 1
+            else:  # Keep as is if it's the only chunk
+                merged.append(current)
+                i += 1
+        else:
+            merged.append(current)
+            i += 1
+    
+    return merged
+
+# Utility function for performance testing
+def analyze_chunks(chunks):
+    """Analyze chunk statistics for optimization."""
+    if not chunks:
+        return {}
+    
+    lengths = [len(chunk) for chunk in chunks]
+    return {
+        'total_chunks': len(chunks),
+        'avg_length': sum(lengths) / len(lengths),
+        'min_length': min(lengths),
+        'max_length': max(lengths),
+        'total_characters': sum(lengths)
+    }

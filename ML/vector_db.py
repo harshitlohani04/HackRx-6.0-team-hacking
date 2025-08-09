@@ -43,13 +43,6 @@ def generate_response(extracted_text: str, questions: list[str]):
     vector_store.add_documents(documents=documents, ids=uuids)
 
     # Running inference
-    # llm = HuggingFaceEndpoint( 
-    #     repo_id="moonshotai/Kimi-K2-Instruct",
-    #     provider="together",
-    #     temperature=0.05,
-    #     model_kwargs={'max_length': 128},
-    #     huggingfacehub_api_token=os.getenv("HUGGINGFACE_TOKEN")
-    # )
     llm = ChatOpenAI(
         api_key=os.getenv("GROQ_API_KEY"),
         base_url="https://api.groq.com/openai/v1",

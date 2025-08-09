@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from chunker import main_chunk_function
 from langchain.schema import Document
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
@@ -26,7 +26,6 @@ def create_pineconeInstance():
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
-
     # Connect to index
     index = pc.Index(index_name)
     return index

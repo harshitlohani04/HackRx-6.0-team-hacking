@@ -51,7 +51,7 @@ async def text_extraction_pipeline(request: Request):
                 dpi=200,
                 fmt="jpeg",
                 output_folder=temp_dir,
-                poppler_path=r"C:\\poppler-24.08.0\\Library\\bin"
+                poppler_path="./bin"
             )
 
             all_page_data = []

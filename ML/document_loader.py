@@ -8,12 +8,27 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from prompt_construct import parsing_res_to_prompt  # adjust if needed
 import easyocr
 from vector_db import generate_response
+from starlette.middleware.base import BaseHTTPMiddleware
+from dotenv import load_dotenv
 
+load_dotenv()
+API_TOKEN = os.getenv("API_KEY")
 # Initialize FastAPI app
 app = FastAPI()
 
-# Initialize EasyOCR reader once at startup
-# Set gpu=False if you don’t have a CUDA GPU available
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or auth_header != f"Bearer {API_TOKEN}":
+            return JSONResponse(
+                content={"error": "Unauthorized"},
+                status_code=401
+            )
+        return await call_next(request)
+
+# Add middleware
+app.add_middleware(AuthMiddleware)
+
 reader = easyocr.Reader(['en'], gpu=False)
 
 @app.post("/hackrx/run", response_class=HTMLResponse)

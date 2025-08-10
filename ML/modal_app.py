@@ -5,11 +5,12 @@ import requests
 import tempfile
 import numpy as np
 from pdf2image import convert_from_bytes
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 import easyocr
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Ensure our mounted code dir is importable
 sys.path.append("/root/app")
@@ -54,6 +55,14 @@ def fastapi_app():
 
     web_app.add_middleware(AuthMiddleware)
 
+    def ocr_page(page_tuple):
+        page_num, image = page_tuple
+        image_array = np.array(image)
+        ocr_results = reader.readtext(image_array)
+        texts = [res[1] for res in ocr_results]
+        page_texts = "\n".join(texts) if texts else "[No text detected]"
+        return page_num, f"-- Page {page_num} --\n{page_texts}"
+
     @web_app.post("/hackrx/run", response_class=JSONResponse)
     async def text_extraction_pipeline(request: Request):
         data = await request.json()
@@ -75,17 +84,21 @@ def fastapi_app():
                     fmt="jpeg",
                     output_folder=temp_dir
                 )
+                page_image_tuples = list(enumerate(images,start=1))
 
                 all_page_data = []
-                for page_num, image in enumerate(images, start=1):
-                    img_array = np.array(image)
-                    ocr_results = reader.readtext(img_array)
-                    texts = [res[1] for res in ocr_results]
-                    page_text = "\n".join(texts) if texts else "[No text detected]"
-                    all_page_data.append(f"-- Page {page_num} --\n{page_text}")
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = [executor.submit(ocr_page, page) for page in page_image_tuples]
+
+                    for future in as_completed(futures):
+                        page_num, page_text = future.result()
+                        all_page_data.append((page_num, page_text))
+
+                all_page_data.sort(key = lambda x: x[0])
+                page_texts = [text for _,text in all_page_data]
 
             # Send to LLM
-            pdfData = "<br><br>".join(all_page_data)
+            pdfData = "<br><br>".join(page_texts)
             llm_response = generate_response(pdfData, questions)
 
             return JSONResponse({"answers": llm_response}, status_code=200)

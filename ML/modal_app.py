@@ -22,7 +22,7 @@ load_dotenv()
 
 # Build Modal image with requirements + poppler
 image = (
-    modal.Image.debian_slim() # ensure available at build time
+    modal.Image.debian_slim(python_version="3.11") # ensure available at build time
     .apt_install("poppler-utils")        # needed for pdf2image
     .pip_install_from_requirements("requirements.txt")
     .add_local_python_source("vector_db")
